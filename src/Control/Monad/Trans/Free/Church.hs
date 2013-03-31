@@ -3,13 +3,15 @@
 {-# LANGUAGE FlexibleInstances #-}
 
 module Control.Monad.Trans.Free.Church
-    (FT(..)
+    ( FT(..)
     , MonadFree(..)
     , hoistFT
     , transFT
     , cataFT
     , foldFT
     , sequenceFT
+    , toFreeT
+    , fromFreeT
     ) where
 
 import Prelude hiding (mapM, sequence)
@@ -58,4 +60,4 @@ toFreeT :: (Functor f, Monad m) => FT f m a -> FreeT f m a
 toFreeT = FreeT . cataFT (runFreeT . return) (runFreeT . wrap . fmap FreeT)
 
 fromFreeT :: (Functor f, Monad m) => FreeT f m a -> FT f m a
-fromFreeT f = FT $ \kp kf -> cataFreeT kp kf f 
+fromFreeT f = FT $ \kp kf -> cataFreeT kp kf f
