@@ -179,7 +179,9 @@ cataFreeT kp kf = cataFreeT'
 
 foldFreeT :: (Traversable f, Monad m) => (a -> m b) -> (f b -> m b) -> FreeT f m a -> m b
 foldFreeT kp kf = foldFreeT'
-  where foldFreeT' =  elimFreeF kp kf <=< mapM foldFreeT' <=< runFreeT
+  where foldFreeT' =  elimFreeF kp (kf <=< mapM foldFreeT') <=< runFreeT
+{- alternate definition:
+foldFreeT kp kf = cataFT kp $ kf <=< sequence -}
 
 sequenceFreeT :: (Traversable f, Monad m, MonadFree f n) => FreeT f m a -> m (n a)
 sequenceFreeT = foldFreeT (return . return) (return . wrap)
