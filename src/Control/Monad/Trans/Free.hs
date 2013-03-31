@@ -27,10 +27,14 @@ module Control.Monad.Trans.Free
   , liftF
   , hoistFreeT
   , transFreeT
+  , cataFreeT
+  , foldFreeT
+  , sequenceFreeT
   ) where
 
+import Prelude hiding (mapM)
 import Control.Applicative
-import Control.Monad (liftM, MonadPlus(..), ap)
+import Control.Monad (liftM, MonadPlus(..), ap, (<=<))
 import Control.Monad.Trans.Class
 import Control.Monad.Free.Class
 import Control.Monad.IO.Class
@@ -80,6 +84,11 @@ transFreeF :: (forall x. f x -> g x) -> FreeF f a b -> FreeF g a b
 transFreeF _ (Pure a) = Pure a
 transFreeF t (Free as) = Free (t as)
 {-# INLINE transFreeF #-}
+
+elimFreeF :: (a -> c) -> (f b -> c) -> FreeF f a b -> c
+elimFreeF f _ (Pure a) = f a
+elimFreeF _ g (Free as) = g as
+{-# INLINE elimFreeF #-}
 
 -- | The \"free monad transformer\" for a functor @f@.
 newtype FreeT f m a = FreeT { runFreeT :: m (FreeF f a (FreeT f m a)) }
@@ -161,6 +170,19 @@ hoistFreeT mh = FreeT . mh . liftM (fmap (hoistFreeT mh)) . runFreeT
 -- | Lift a natural transformation from @f@ to @g@ into a monad homomorphism from @'FreeT' f m@ to @'FreeT' g n@
 transFreeT :: (Monad m, Functor g) => (forall a. f a -> g a) -> FreeT f m b -> FreeT g m b
 transFreeT nt = FreeT . liftM (fmap (transFreeT nt) . transFreeF nt) . runFreeT
+
+-- | Recursion schemes for @'FreeT'
+
+cataFreeT :: (Functor f, Monad m) => (a -> m b) -> (f (m b) -> m b) -> FreeT f m a -> m b
+cataFreeT kp kf = cataFreeT'
+  where cataFreeT' = elimFreeF kp (kf . fmap cataFreeT') <=< runFreeT
+
+foldFreeT :: (Traversable f, Monad m) => (a -> m b) -> (f b -> m b) -> FreeT f m a -> m b
+foldFreeT kp kf = foldFreeT'
+  where foldFreeT' =  elimFreeF kp kf <=< mapM foldFreeT' <=< runFreeT
+
+sequenceFreeT :: (Traversable f, Monad m, MonadFree f n) => FreeT f m a -> m (n a)
+sequenceFreeT = foldFreeT (return . return) (return . wrap)
 
 #if defined(GHC_TYPEABLE) && __GLASGOW_HASKELL__ < 707
 instance Typeable1 f => Typeable2 (FreeF f) where
